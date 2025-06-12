@@ -6,6 +6,8 @@ from datetime import datetime
 from dotenv import load_dotenv
 import gspread
 from google.oauth2.service_account import Credentials
+from datetime import datetime, timedelta
+
 
 # Carrega variáveis do arquivo .env
 load_dotenv()
@@ -43,7 +45,20 @@ def fetch_messages():
 
         messages = response.json()
         print(f"🔍 {len(messages)} mensagens encontradas.")
-        return messages
+
+        # Filtrar só mensagens dos últimos 60 minutos
+        now = datetime.utcnow()
+        limit_time = now - timedelta(minutes=60)
+
+        filtered_messages = []
+        for msg in messages:
+            msg_time = datetime.fromisoformat(msg["timestamp"].replace("Z", "+00:00"))
+            if msg_time >= limit_time:
+                filtered_messages.append(msg)
+
+        print(f"⏳ {len(filtered_messages)} mensagens dentro dos últimos 60 minutos.")
+        return filtered_messages
+
     except Exception as e:
         print(f"Erro na requisição: {e}")
         return []
