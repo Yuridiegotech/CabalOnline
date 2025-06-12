@@ -48,7 +48,7 @@ def fetch_messages():
 
         # Filtrar só mensagens dos últimos 60 minutos
         now = datetime.utcnow()
-        limit_time = now - timedelta(minutes=60)
+        limit_time = now - timedelta(minutes=70)
 
         filtered_messages = []
         for msg in messages:
