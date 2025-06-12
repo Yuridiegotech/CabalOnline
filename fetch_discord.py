@@ -7,17 +7,25 @@ from dotenv import load_dotenv
 import gspread
 from google.oauth2.service_account import Credentials
 
-# Carrega variáveis do arquivo .env (local) ou do ambiente (GitHub Actions)
+# Carrega variáveis do arquivo .env
 load_dotenv()
 
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 CHANNEL_ID = os.getenv("DISCORD_CHANNEL_ID")
 SHEET_ID = os.getenv("GOOGLE_SHEET_ID")
-GOOGLE_SHEETS_CREDENTIALS_JSON = os.getenv("GOOGLE_SHEETS_CREDENTIALS")
 
-if not TOKEN or not CHANNEL_ID or not SHEET_ID or not GOOGLE_SHEETS_CREDENTIALS_JSON:
-    print("❌ Erro: Variáveis de ambiente DISCORD_BOT_TOKEN, DISCORD_CHANNEL_ID, GOOGLE_SHEET_ID e/ou GOOGLE_SHEETS_CREDENTIALS não estão definidas!")
+if not TOKEN or not CHANNEL_ID or not SHEET_ID:
+    print("❌ Erro: Variáveis de ambiente DISCORD_BOT_TOKEN, DISCORD_CHANNEL_ID e/ou GOOGLE_SHEET_ID não estão definidas!")
     exit(1)
+
+CREDENTIALS_FILE = "cabal-462702-23e95cf075a6.json"
+
+def remove_emoji_prefix(line):
+    # Remove prefixos emoji tipo :inbox_tray:
+    line = re.sub(r"^:\w+?:\s*", "", line)
+    # Remove símbolos não alfanuméricos do início (básico)
+    line = re.sub(r"^[^\w\s]+", "", line)
+    return line.strip()
 
 def fetch_messages():
     url = f"https://discord.com/api/v10/channels/{CHANNEL_ID}/messages"
@@ -99,7 +107,7 @@ def extract_loot(messages):
             title = embed.get("title", "")
             description = embed.get("description", "")
 
-            if title not in ["📦 Loot", "📦 Inventory Cleaner"]:
+            if title not in ["📦 Loot", "⚒️ Inventory Cleaner"]:
                 continue
 
             tipo_extracao = "Loot" if title == "📦 Loot" else "Inventory Cleaner"
@@ -110,19 +118,38 @@ def extract_loot(messages):
                 if not line:
                     continue
 
-                if line.startswith(":inbox_tray:"):
+                # Define entrada_saida e remove prefixos conforme regras
+                if tipo_extracao == "Loot":
                     entrada_saida = "Entrada"
-                    item_line = line[len(":inbox_tray:"):].strip()
-                elif line.startswith(":x:"):
-                    entrada_saida = "Saida"
-                    item_line = line[len(":x:"):].strip()
+                    # No Loot remove prefixo emoji tipo :inbox_tray: se houver, mas não considera prefixo para entrada_saida
+                    item_line = remove_emoji_prefix(line)
                 else:
-                    entrada_saida = "Entrada"
-                    item_line = line
+                    # Inventory Cleaner
+                    if line.startswith(":inbox_tray:"):
+                        entrada_saida = "Entrada"
+                        item_line = remove_emoji_prefix(line)
+                    elif line.startswith(":x:") or line.startswith("❌"):
+                        entrada_saida = "Saida"
+                        item_line = remove_emoji_prefix(line)
+                    elif line.startswith("📤"):
+                        # "Out" prefix (pode ser em negrito)
+                        entrada_saida = "Saida"
+                        item_line = line.lstrip("📤").strip()
+                    elif line.startswith("📦"):
+                        # "In" prefix (pode ser em negrito)
+                        entrada_saida = "Entrada"
+                        item_line = line.lstrip("📦").strip()
+                    else:
+                        entrada_saida = "Entrada"
+                        item_line = remove_emoji_prefix(line)
 
                 parsed = parse_item_line(item_line, entrada_saida)
                 parsed["tipo_extracao"] = tipo_extracao
                 parsed["data"] = msg.get("timestamp") or datetime.utcnow().isoformat()
+
+                # Ignora linhas que sejam só indicadores do tipo In/Out, geralmente em negrito ou isolados
+                if parsed["item"].lower() in ["**out**", "**in**", "out", "in"]:
+                    continue
 
                 loot_list.append(parsed)
 
@@ -138,11 +165,7 @@ def append_to_google_sheets(data):
     print("📄 Enviando dados para o Google Sheets...")
     try:
         scope = ["https://www.googleapis.com/auth/spreadsheets"]
-
-        # Usa credenciais da variável de ambiente
-        creds_info = json.loads(GOOGLE_SHEETS_CREDENTIALS_JSON)
-        creds = Credentials.from_service_account_info(creds_info, scopes=scope)
-
+        creds = Credentials.from_service_account_file(CREDENTIALS_FILE, scopes=scope)
         client = gspread.authorize(creds)
         sheet = client.open_by_key(SHEET_ID).worksheet("Dados")
 
