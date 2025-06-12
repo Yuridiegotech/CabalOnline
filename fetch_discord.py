@@ -7,19 +7,17 @@ from dotenv import load_dotenv
 import gspread
 from google.oauth2.service_account import Credentials
 
-# Carrega variáveis do arquivo .env
+# Carrega variáveis do arquivo .env (local) ou do ambiente (GitHub Actions)
 load_dotenv()
 
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 CHANNEL_ID = os.getenv("DISCORD_CHANNEL_ID")
 SHEET_ID = os.getenv("GOOGLE_SHEET_ID")
+GOOGLE_SHEETS_CREDENTIALS_JSON = os.getenv("GOOGLE_SHEETS_CREDENTIALS")
 
-if not TOKEN or not CHANNEL_ID or not SHEET_ID:
-    print("❌ Erro: Variáveis de ambiente DISCORD_BOT_TOKEN, DISCORD_CHANNEL_ID e/ou GOOGLE_SHEET_ID não estão definidas!")
+if not TOKEN or not CHANNEL_ID or not SHEET_ID or not GOOGLE_SHEETS_CREDENTIALS_JSON:
+    print("❌ Erro: Variáveis de ambiente DISCORD_BOT_TOKEN, DISCORD_CHANNEL_ID, GOOGLE_SHEET_ID e/ou GOOGLE_SHEETS_CREDENTIALS não estão definidas!")
     exit(1)
-
-# Caminho para o arquivo de credenciais da conta de serviço
-CREDENTIALS_FILE = "cabal-462702-23e95cf075a6.json"
 
 def fetch_messages():
     url = f"https://discord.com/api/v10/channels/{CHANNEL_ID}/messages"
@@ -71,7 +69,6 @@ def parse_item_line(line, entrada_saida):
     if raridade_match:
         raridade = raridade_match.group(1)
         line = (line[:raridade_match.start()] + line[raridade_match.end():]).strip()
-
 
     nivel_match = re.search(r"\+(\d+)$", line)
     if nivel_match:
@@ -141,7 +138,11 @@ def append_to_google_sheets(data):
     print("📄 Enviando dados para o Google Sheets...")
     try:
         scope = ["https://www.googleapis.com/auth/spreadsheets"]
-        creds = Credentials.from_service_account_file(CREDENTIALS_FILE, scopes=scope)
+
+        # Usa credenciais da variável de ambiente
+        creds_info = json.loads(GOOGLE_SHEETS_CREDENTIALS_JSON)
+        creds = Credentials.from_service_account_info(creds_info, scopes=scope)
+
         client = gspread.authorize(creds)
         sheet = client.open_by_key(SHEET_ID).worksheet("Dados")
 
