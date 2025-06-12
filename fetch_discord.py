@@ -8,7 +8,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 from datetime import datetime, timedelta, timezone
 
-
+#coments
 
 # Carrega variáveis do arquivo .env
 load_dotenv()
