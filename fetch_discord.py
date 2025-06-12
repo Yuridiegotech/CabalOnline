@@ -2,13 +2,10 @@ import os
 import json
 import re
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 import gspread
 from google.oauth2.service_account import Credentials
-from datetime import datetime, timedelta, timezone
-
-#coments
 
 # Carrega variáveis do arquivo .env
 load_dotenv()
@@ -20,8 +17,6 @@ SHEET_ID = os.getenv("GOOGLE_SHEET_ID")
 if not TOKEN or not CHANNEL_ID or not SHEET_ID:
     print("❌ Erro: Variáveis de ambiente DISCORD_BOT_TOKEN, DISCORD_CHANNEL_ID e/ou GOOGLE_SHEET_ID não estão definidas!")
     exit(1)
-
-CREDENTIALS_FILE = "cabal-462702-23e95cf075a6.json"
 
 def remove_emoji_prefix(line):
     # Remove prefixos emoji tipo :inbox_tray:
@@ -137,7 +132,6 @@ def extract_loot(messages):
                 # Define entrada_saida e remove prefixos conforme regras
                 if tipo_extracao == "Loot":
                     entrada_saida = "Entrada"
-                    # No Loot remove prefixo emoji tipo :inbox_tray: se houver, mas não considera prefixo para entrada_saida
                     item_line = remove_emoji_prefix(line)
                 else:
                     # Inventory Cleaner
@@ -148,11 +142,9 @@ def extract_loot(messages):
                         entrada_saida = "Saida"
                         item_line = remove_emoji_prefix(line)
                     elif line.startswith("📤"):
-                        # "Out" prefix (pode ser em negrito)
                         entrada_saida = "Saida"
                         item_line = line.lstrip("📤").strip()
                     elif line.startswith("📦"):
-                        # "In" prefix (pode ser em negrito)
                         entrada_saida = "Entrada"
                         item_line = line.lstrip("📦").strip()
                     else:
@@ -163,7 +155,6 @@ def extract_loot(messages):
                 parsed["tipo_extracao"] = tipo_extracao
                 parsed["data"] = msg.get("timestamp") or datetime.utcnow().isoformat()
 
-                # Ignora linhas que sejam só indicadores do tipo In/Out, geralmente em negrito ou isolados
                 if parsed["item"].lower() in ["**out**", "**in**", "out", "in"]:
                     continue
 
@@ -181,7 +172,14 @@ def append_to_google_sheets(data):
     print("📄 Enviando dados para o Google Sheets...")
     try:
         scope = ["https://www.googleapis.com/auth/spreadsheets"]
-        creds = Credentials.from_service_account_file(CREDENTIALS_FILE, scopes=scope)
+
+        credentials_json = os.getenv("GOOGLE_SHEETS_CREDENTIALS")
+        if not credentials_json:
+            raise Exception("Variável de ambiente GOOGLE_SHEETS_CREDENTIALS não encontrada")
+
+        credentials_info = json.loads(credentials_json)
+        creds = Credentials.from_service_account_info(credentials_info, scopes=scope)
+
         client = gspread.authorize(creds)
         sheet = client.open_by_key(SHEET_ID).worksheet("Dados")
 
