@@ -23,6 +23,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Criar arquivo de credenciais Google Sheets
+        run: echo "${{ secrets.GOOGLE_SHEETS_CREDENTIALS }}" > cabal-462702-23e95cf075a6.json
+
       - name: Rodar o script Python
         env:
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
