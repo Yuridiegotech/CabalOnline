@@ -6,7 +6,8 @@ from datetime import datetime
 from dotenv import load_dotenv
 import gspread
 from google.oauth2.service_account import Credentials
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+
 
 
 # Carrega variáveis do arquivo .env
@@ -47,7 +48,7 @@ def fetch_messages():
         print(f"🔍 {len(messages)} mensagens encontradas.")
 
         # Filtrar só mensagens dos últimos 60 minutos
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         limit_time = now - timedelta(minutes=70)
 
         filtered_messages = []

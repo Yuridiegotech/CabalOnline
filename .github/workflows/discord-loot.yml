@@ -2,7 +2,7 @@ name: Discord Loot Collector
 
 on:
   schedule:
-    - cron: '10 * * * *' # roda no minuto 10 de cada hora (UTC)
+    - cron: '25 * * * *' # roda no minuto 10 de cada hora (UTC)
   workflow_dispatch: # permite rodar manualmente
 
 jobs:
